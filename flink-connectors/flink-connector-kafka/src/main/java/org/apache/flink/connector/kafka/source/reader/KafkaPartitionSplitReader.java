@@ -43,7 +43,6 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -94,7 +93,8 @@ public class KafkaPartitionSplitReader
     public RecordsWithSplitIds<ConsumerRecord<byte[], byte[]>> fetch() throws IOException {
         ConsumerRecords<byte[], byte[]> consumerRecords;
         try {
-            consumerRecords = consumer.poll(Duration.ofMillis(POLL_TIMEOUT));
+            // kafka 1.1.0格式为poll(Long)
+            consumerRecords = consumer.poll(POLL_TIMEOUT);
         } catch (WakeupException we) {
             return new KafkaPartitionSplitRecords(
                     ConsumerRecords.empty(), kafkaSourceReaderMetrics);
@@ -294,17 +294,17 @@ public class KafkaPartitionSplitReader
         Map<TopicPartition, Long> endOffset = consumer.endOffsets(partitionsStoppingAtLatest);
         stoppingOffsets.putAll(endOffset);
         if (!partitionsStoppingAtCommitted.isEmpty()) {
-            consumer.committed(partitionsStoppingAtCommitted)
-                    .forEach(
-                            (tp, offsetAndMetadata) -> {
-                                Preconditions.checkNotNull(
-                                        offsetAndMetadata,
-                                        String.format(
-                                                "Partition %s should stop at committed offset. "
-                                                        + "But there is no committed offset of this partition for group %s",
-                                                tp, groupId));
-                                stoppingOffsets.put(tp, offsetAndMetadata.offset());
-                            });
+            // kafka1.1.0仅支持commit(TopicPartition)方法
+            for (TopicPartition tp : partitionsStoppingAtCommitted) {
+                OffsetAndMetadata offsetAndMetadata = consumer.committed(tp);
+                Preconditions.checkNotNull(
+                        offsetAndMetadata,
+                        String.format(
+                                "Partition %s should stop at committed offset. "
+                                        + "But there is no committed offset of this partition for group %s",
+                                tp, groupId));
+                stoppingOffsets.put(tp, offsetAndMetadata.offset());
+            }
         }
     }
 

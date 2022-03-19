@@ -110,17 +110,18 @@ class FlinkKafkaInternalProducer<K, V> extends KafkaProducer<K, V> {
             // If this producer is still in transaction, it should be committing.
             // However, at this point, we cannot decide that and we shouldn't prolong cancellation.
             // So hard kill this producer with all resources.
-            super.close(Duration.ZERO);
+            // kafka1.1.0没有close(Duration)方法，修改为close(Long,TimeUnit)
+            super.close(Duration.ZERO.toMillis(), TimeUnit.MILLISECONDS);
         } else {
             // If this is outside of a transaction, we should be able to cleanly shutdown.
-            super.close(Duration.ofHours(1));
+            // kafka1.1.0没有close(Duration)方法，修改为close(Long,TimeUnit)
+            super.close(Duration.ofHours(1).toMillis(), TimeUnit.MILLISECONDS);
         }
     }
 
-    @Override
     public void close(Duration timeout) {
         closed = true;
-        super.close(timeout);
+        super.close(timeout.toMillis(), TimeUnit.MILLISECONDS);
     }
 
     @Override
@@ -222,7 +223,8 @@ class FlinkKafkaInternalProducer<K, V> extends KafkaProducer<K, V> {
             } else {
                 // we don't have an operation but this operation string is also used in
                 // addPartitionsToTransactionHandler.
-                result = new TransactionalRequestResult("AddPartitionsToTxn");
+                // kafka1.1.0不支持传参
+                result = new TransactionalRequestResult();
                 result.done();
             }
             return result;

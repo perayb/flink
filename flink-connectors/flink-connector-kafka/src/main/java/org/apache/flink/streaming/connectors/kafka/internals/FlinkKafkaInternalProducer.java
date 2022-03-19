@@ -168,10 +168,10 @@ public class FlinkKafkaInternalProducer<K, V> implements Producer<K, V> {
         }
     }
 
-    @Override
     public void close(Duration duration) {
         synchronized (producerClosingLock) {
-            kafkaProducer.close(duration);
+            // kafka1.1.0没有close(Duration)方法，修改为close(Long,TimeUnit)
+            kafkaProducer.close(duration.toMillis(), TimeUnit.MILLISECONDS);
             if (LOG.isDebugEnabled()) {
                 LOG.debug(
                         "Closed internal KafkaProducer {}. Stacktrace: {}",
@@ -349,7 +349,8 @@ public class FlinkKafkaInternalProducer<K, V> implements Producer<K, V> {
             } else {
                 // we don't have an operation but this operation string is also used in
                 // addPartitionsToTransactionHandler.
-                result = new TransactionalRequestResult("AddPartitionsToTxn");
+                // kafka1.1.0不支持传参
+                result = new TransactionalRequestResult();
                 result.done();
             }
             return result;
